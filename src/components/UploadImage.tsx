@@ -261,13 +261,7 @@ const UploadImage = () => {
                                     </option>
                                 ))}
                             </select>
-                            <button
-                                onClick={() => navigate('/events')}
-                                className="bg-primary text-white py-2 px-4 rounded-lg hover:bg-secondary transition-colors duration-200 flex items-center"
-                            >
-                                <ArrowLeft className="w-5 h-5 mr-2" />
-                                View Events
-                            </button>
+                            
                         </div>
                     </div>
                     <h2 className="text-2xl font-bold mb-6 text-gray-400">Upload Images</h2>
