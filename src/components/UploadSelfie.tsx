@@ -109,7 +109,7 @@ const UploadSelfie = () => {
 
     if (!isInitialized) {
         return (
-            <div className="relative min-h-screen">
+            <div className="relative min-h-screen bg-red-100">
                 {eventCoverImage ? (
                     <div className="fixed top-0 left-0 w-full h-64 bg-black">
                         <img
@@ -120,18 +120,10 @@ const UploadSelfie = () => {
                         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-50"></div>
                     </div>
                 ) : (
-                    <video
-                        autoPlay
-                        loop
-                        muted
-                        className="fixed top-0 left-0 w-full h-full object-cover opacity-100"
-                    >
-                        <source src="/tiny.mp4" type="video/mp4" />
-                        Your browser does not support the video tag.
-                    </video>
+                    <div className="w-full h-full bg-red-100"></div>
                 )}
                 <div className="flex items-center justify-center min-h-screen bg-champagne bg-opacity-50 relative z-10">
-                    <div className="text-center p-8 bg-white rounded-lg shadow-lg">
+                    <div className="text-center p-8 bg-red-100 rounded-lg shadow-lg">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-turquoise mx-auto"></div>
                         <p className="mt-4 text-gray-600">Loading...</p>
                     </div>
@@ -176,87 +168,38 @@ const UploadSelfie = () => {
             console.log('selfieurl',selfieUrl);
             // Always use the shared event path for selfies and images
             // Use event-specific path for all operations
-            const userEmail = localStorage.getItem('userEmail');
-            const isSharedAccess = localStorage.getItem('isSharedAccess') === 'true';
+            // Use fixed shared event path format
+            const sharedEventPath = `events/shared/${eventId}`;
+            const selfiePath = `${sharedEventPath}/selfies/${selfieUrl}`;
+            const imagesPath = `${sharedEventPath}/images/`;
             
-            // Define paths based on user email for both shared and authenticated access
-            const eventPath = isSharedAccess || !userEmail ? `events/shared/${eventId}` : `${userEmail}/${eventId}`;
-            const initialSelfiePath = `${eventPath}/selfies/${selfieUrl}`;
-            const initialImagesPath = `${eventPath}/images/`;
-            
-            // Also check the alternative path for shared access
-            const alternativeImagesPath = isSharedAccess ? `${userEmail}/${eventId}/images/` : null;
-            
-            let validPath = null;
-            
-            // Check for valid images in the event path
+            // Check for valid images in the shared event path
             const listImagesCommand = new ListObjectsV2Command({
                 Bucket: S3_BUCKET_NAME,
-                Prefix: initialImagesPath,
+                Prefix: imagesPath,
                 MaxKeys: 1000
             });
             
             const listImagesResponse = await s3Client.send(listImagesCommand);
-            if (listImagesResponse.Contents && listImagesResponse.Contents.length > 0) {
-                const validImages = listImagesResponse.Contents.filter(item => 
-                    item.Key && /\.(jpg|jpeg|png)$/i.test(item.Key)
-                );
-                
-                if (validImages.length > 0) {
-                    validPath = { 
-                        selfiePath: initialSelfiePath, 
-                        imagesPath: initialImagesPath 
-                    };
-                }
-            }
-            
-            if (!validPath) {
-                console.error('No valid path found for images');
-                console.log('Event ID:', eventId);
-                console.log('Is Shared Access:', isSharedAccess);
-                console.log('Initial Images Path:', initialImagesPath);
-                console.log('Alternative Images Path:', alternativeImagesPath);
-                throw new Error('No valid images found in this event. Please ensure images are uploaded before attempting face comparison.');
-            }
-
-            // Log the path being used for face comparison
-            console.log('Using image path for comparison:', validPath.imagesPath);
-            
-            // Check both primary and alternative paths for images
-            const pathsToCheck = [validPath.imagesPath];
-            if (alternativeImagesPath) {
-                pathsToCheck.push(alternativeImagesPath);
-            }
-
-            let foundValidImages = false;
-            let lastError = null;
-
-            for (const pathToCheck of pathsToCheck) {
-                try {
-                    console.log('Checking images in path:', pathToCheck);
-                    const listImagesCommand = new ListObjectsV2Command({
-                        Bucket: S3_BUCKET_NAME,
-                        Prefix: pathToCheck,
-                        MaxKeys: 1000
-                    });
-                    
-                    const listImagesResponse = await s3Client.send(listImagesCommand);
-                    
-                    if (listImagesResponse.Contents && listImagesResponse.Contents.length > 0) {
-                        foundValidImages = true;
-                        validPath.imagesPath = pathToCheck;
-                        break;
-                    }
-                } catch (error) {
-                    console.log(`Error checking path ${pathToCheck}:`, error);
-                    lastError = error;
-                }
-            }
-
-            if (!foundValidImages) {
-                console.error('No valid images found in any path');
+            if (!listImagesResponse.Contents || listImagesResponse.Contents.length === 0) {
+                console.error('No valid images found in path:', imagesPath);
                 throw new Error('No images found in this event. Please ensure images are uploaded before attempting face comparison.');
             }
+
+            const validImages = listImagesResponse.Contents.filter(item => 
+                item.Key && /\.(jpg|jpeg|png)$/i.test(item.Key)
+            );
+            
+            if (validImages.length === 0) {
+                throw new Error('No valid images found in this event. Please ensure JPEG or PNG images are uploaded.');
+            }
+
+            const validPath = {
+                selfiePath: selfiePath,
+                imagesPath: imagesPath
+            };
+
+            console.log('Using image path for comparison:', validPath.imagesPath);
             // List all images in the event using the shared path
             const listCommand = new ListObjectsV2Command({
                 Bucket: S3_BUCKET_NAME,
@@ -540,7 +483,12 @@ const UploadSelfie = () => {
     };
 
     return (
-        <div className="relative min-h-screen">
+        <div className="relative min-h-screen bg-red-100">
+            <div className="container mx-auto px-4 py-8 relative z-10">
+                <div className="mb-8 flex flex-col sm:flex-row justify-center items-start sm:items-center gap-4">
+                    <h1 className="text-3xl font-bold text-red-500">Upload Selfie</h1>
+                </div>
+        
             {/* Video Background */}
             <video
                 autoPlay
@@ -556,7 +504,7 @@ const UploadSelfie = () => {
             <div className="relative z-10 container mx-auto px-4 py-8">
                 <div className="max-w-2xl mx-auto bg-black p-8 rounded-lg shadow-md border-2 border-aquamarine">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold text-gray-100">Upload Selfie</h2>
+                        <h2 className="text-2xl font-bold text-aquamarine">Upload Selfie</h2>
                         <Link to="/" className="flex items-center text-gray-600 hover:text-gray-800">
                            
                         </Link>
@@ -570,16 +518,17 @@ const UploadSelfie = () => {
 
                     <div className="space-y-4">
                         <div className="flex items-center justify-center w-full">
-                            <label htmlFor="selfie-upload" className="w-full flex flex-col items-center px-4 py-6 bg-white rounded-lg border-2 border-turquoise border-dashed cursor-pointer hover:border-aquamarine hover:bg-champagne transition-colors duration-200">
+                            <label htmlFor="selfie-upload" className="w-full flex flex-col items-center px-4 py-6 bg-red-100 rounded-lg border-2 border-turquoise border-dashed cursor-pointer hover:border-aquamarine hover:bg-champagne transition-colors duration-200">
+                
                                 <div className="flex flex-col items-center">
-                                    <Camera className="w-8 h-8 text-gray-400" />
-                                    <p className="mt-2 text-sm text-gray-500">
+                                    <Camera className="w-8 h-8 text-black-400" />
+                                    <p className="mt-2 text-sm text-red-500">
                                         <span className="font-semibold">Click to upload or drag and drop</span>
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-red-500 mt-1">
                                         Take a clear selfie for best results
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-red-500 mt-1">
                                         JPEG or PNG up to 5MB
                                     </p>
                                 </div>
@@ -666,7 +615,7 @@ const UploadSelfie = () => {
                                 />
                                 <button
                                     onClick={() => setSelectedImage(null)}
-                                    className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg"
+                                    className="absolute top-4 right-4 p-2 bg-red-100 rounded-full shadow-lg"
                                 >
                                     <X className="w-6 h-6 text-gray-800" />
                                 </button>
@@ -675,6 +624,7 @@ const UploadSelfie = () => {
                     )}
                 </div>
             </div>
+        </div>
         </div>
         );
     };
